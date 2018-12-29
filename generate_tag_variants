@@ -1,0 +1,115 @@
+#!/bin/bash
+
+: ${SUBTAG_PRIMARY_DEFAULT:=latest}
+: ${SUBTAG_AUXILIARY_DEFAULT:=}
+: ${SUBTAG_ALL_DEFAULT:=$SUBTAG_PRIMARY_DEFAULT}
+
+if [ $# -lt 2 ]; then
+	echo "\
+Usage: $0 repo:tag map_file1 ... | -
+
+Environment:
+
+SUBTAG_PRIMARY_DEFAULT: ${SUBTAG_PRIMARY_DEFAULT}
+SUBTAG_AUXILIARY_DEFAULT: ${SUBTAG_AUXILIARY_DEFAULT}
+SUBTAG_ALL_DEFAULT: ${SUBTAG_ALL_DEFAULT}
+
+" >&2
+	exit 1
+fi
+
+repo=${1%:*}
+tag=${1#*:}
+shift
+
+# split repo and tag by - and store in arrays
+IFS=-
+declare -a names=($repo)
+declare -a stags=($tag)
+unset IFS
+
+# Build a map of subtags and their aliases from the files in the arguments
+declare -A aliases # subtags map
+for file in "$@"; do
+	[[ $file != - ]] && exec <$file
+	while read key values; do
+		for value in $values; do
+			# check for duplicates and append value
+			[[ " ${aliases[$key]} " =~ " ${value} " ]] || aliases[$key]+=" $value"
+		done
+	done
+done
+
+# Build the subtags variants array
+declare -a variants
+principal_stags=0
+for (( i=0; i < ${#stags[@]}; i++)); do
+	stag=${stags[$i]}
+	first_version=${stag%%.*}
+	# Check if the stag is principal:
+	# the previous stag must be principal, it's index must be less than number of the names, it's version must contain only digits or be empty
+	if [[ $principal_stags -eq $i && $i -lt ${#names[@]} && $first_version =~ ^[0-9]*$ ]]; then
+		: $((principal_stags++))
+		variants[$i]=$stag
+		name=${names[$i]}
+		# the aliases of principal subtags are added with the name prefix stripped
+		if [[ -n ${aliases[$name$stag]} ]]; then
+			for s in ${aliases[$name$stag]}; do
+				variants[$i]+=" ${s#$name}"
+			done
+		fi
+	else
+		# the aliases of auxiliary subtags are added as is
+		variants[$i]=$stag
+		variants[$i]+=${aliases[$stag]}
+	fi
+done
+
+
+# Output all the permutations of the variants array
+
+# This function is run recursively to iterate through all variants
+# Arguments: current_level indices ...
+permutate() {
+	local curr=$1
+	shift
+
+	local stag
+
+	if [[ $curr -eq ${#variants[@]} ]]; then
+		declare -a output=("$@")
+		local defaults=0
+
+		# Replace default value - to 'latest' for principal subtags, and remove it for auxiliary subtags
+		for (( i=0; i < ${#output[@]}; i++)); do
+			stag=${output[$i]}
+			if [[ $stag = - ]]; then
+				: $((defaults++))
+				if [[ $i < $principal_stags ]]; then
+					output[$i]=$SUBTAG_PRIMARY_DEFAULT
+				else
+					output[$i]=$SUBTAG_AUXILIARY_DEFAULT
+				fi
+			fi
+		done
+
+		# If all subtags has default value, collapse all the output to 'latest'
+		if [[ $defaults -eq ${#output[@]} ]]; then
+			echo $SUBTAG_ALL_DEFAULT
+		else
+			output=(${output[*]}) # remove empty elements
+			# output all the elements joint by '-'
+			IFS=-
+			echo "${output[*]}"
+			unset IFS
+		fi
+	else
+		for stag in ${variants[$curr]}; do
+			permutate $((curr+1)) "$@" $stag
+		done
+	fi
+}
+
+# Start permutations from index 0
+permutate 0
+
