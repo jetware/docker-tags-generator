@@ -40,6 +40,16 @@ for file in "$@"; do
 	done
 done
 
+add_variants() {
+	local i=$1 prefix=$2 value=$3
+	# Return if the value already exists in the variants list (prevent loops and duplicates)
+	[[ " ${variants[$i]}" =~ " ${value} " ]] && return
+	variants[$i]+="$value "
+	for new_value in ${aliases[$prefix$value]}; do
+		add_variants "$i" "$prefix" "${new_value#$prefix}"
+	done
+}
+
 # Build the subtags variants array
 declare -a variants
 principal_stags=0
@@ -50,18 +60,12 @@ for (( i=0; i < ${#stags[@]}; i++)); do
 	# the previous stag must be principal, it's index must be less than number of the names, it's version must contain only digits or be empty
 	if [[ $principal_stags -eq $i && $i -lt ${#names[@]} && $first_version =~ ^[0-9]*$ ]]; then
 		: $((principal_stags++))
-		variants[$i]=$stag
 		name=${names[$i]}
 		# the aliases of principal subtags are added with the name prefix stripped
-		if [[ -n ${aliases[$name$stag]} ]]; then
-			for s in ${aliases[$name$stag]}; do
-				variants[$i]+=" ${s#$name}"
-			done
-		fi
+		add_variants "$i" "$name" "$stag"
 	else
 		# the aliases of auxiliary subtags are added as is
-		variants[$i]=$stag
-		variants[$i]+=${aliases[$stag]}
+		add_variants "$i" "" "$stag"
 	fi
 done
 
