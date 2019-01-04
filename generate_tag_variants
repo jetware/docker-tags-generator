@@ -33,20 +33,21 @@ declare -A aliases # subtags map
 for file in "$@"; do
 	[[ $file != - ]] && exec <$file
 	while read key values; do
+		aliases[$key]+=" $key"
 		for value in $values; do
-			# check for duplicates and append value
-			[[ " ${aliases[$key]} " =~ " ${value} " ]] || aliases[$key]+=" $value"
+			aliases[$key]+=" $value"
+			aliases[$value]+=" $value" # append the value also as an alias to itself
 		done
 	done
 done
 
 add_variants() {
-	local i=$1 prefix=$2 value=$3
-	# Return if the value already exists in the variants list (prevent loops and duplicates)
-	[[ " ${variants[$i]}" =~ " ${value} " ]] && return
-	variants[$i]+="$value "
-	for new_value in ${aliases[$prefix$value]}; do
-		add_variants "$i" "$prefix" "${new_value#$prefix}"
+	local i=$1 prefix=$2 value
+	shift 2
+	for value in "$@"; do
+		[[ " ${variants[$i]}" =~ " ${value#$prefix} " ]] && continue
+		variants[$i]+="${value#$prefix} "
+		add_variants "$i" "$prefix" ${aliases[$value]}
 	done
 }
 
@@ -61,14 +62,15 @@ for (( i=0; i < ${#stags[@]}; i++)); do
 	if [[ $principal_stags -eq $i && $i -lt ${#names[@]} && $first_version =~ ^[0-9]*$ ]]; then
 		: $((principal_stags++))
 		name=${names[$i]}
+		variants[$i]+="${stag#$name} "
 		# the aliases of principal subtags are added with the name prefix stripped
-		add_variants "$i" "$name" "$stag"
+		add_variants "$i" "$name"  ${aliases[$name$stag]}
 	else
+		variants[$i]+="$stag "
 		# the aliases of auxiliary subtags are added as is
-		add_variants "$i" "" "$stag"
+		add_variants "$i" "" ${aliases[$stag]}
 	fi
 done
-
 
 # Output all the permutations of the variants array
 
