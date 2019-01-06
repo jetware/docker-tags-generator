@@ -1,0 +1,31 @@
+#!/bin/sh
+
+errors=0
+expect_eq() {
+	echo -n "Test $1 ... " >&2
+	result=$(../shortest_tag_variant $1)
+	if [ "x$result" = "x$2" ]; then
+		echo "ok '$result' = '$2'" >&2
+	else
+		echo "failed '$result' = '$2'" >&2
+		: $((errors+=1))
+	fi
+}
+
+expect_eq "memcached:1.4.29-ubuntu18.04 memcached/*" ""
+expect_eq "memcached:1.4.29-alpine3.8 memcached/*" "latest"
+expect_eq "pytorch-notebook:1.0.0-python3.6.3-ubuntu18.04 pytorch/*" ""
+expect_eq "pytorch-notebook:1.0.0-python3.6.3-alpine3.8 pytorch/*" "latest"
+expect_eq "pytorch-notebook:1.0.0-python2.7.14-alpine3.8 pytorch/*" "latest-python2"
+expect_eq "pytorch-notebook:0.4.1-python2.7.14-alpine3.8 pytorch/*" "0-python2"
+
+
+
+
+
+if [ $errors -gt 0 ]; then
+	echo "Errors: $errors"
+	exit 1
+else
+	echo "No errors"
+fi

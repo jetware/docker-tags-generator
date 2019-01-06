@@ -142,6 +142,8 @@ shortest_tag_variant)
 	# Find the shortest variant of the tag
 	# All subtags must be present as an alias key for the variant to be actual
 
+	[[ ${#variants[@]} -ne ${#stags[@]} ]] && exit 0
+
 	declare -a output
 	defaults=0
 	for (( i=0; i < ${#variants[@]}; i++)); do
