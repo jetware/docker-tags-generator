@@ -14,6 +14,7 @@ expect_eq() {
 
 expect_eq "memcached:1.4.29-ubuntu18.04 memcached/*" ""
 expect_eq "memcached:1.4.29-alpine3.8 memcached/*" "latest"
+expect_eq "memcached:1.4.29-debian9 memcached/*" "latest-debian9"
 expect_eq "pytorch-notebook:1.0.0-python3.6.3-ubuntu18.04 pytorch/*" ""
 expect_eq "pytorch-notebook:1.0.0-python3.6.3-alpine3.8 pytorch/*" "latest"
 expect_eq "pytorch-notebook:1.0.0-python2.7.14-alpine3.8 pytorch/*" "latest-python2"
