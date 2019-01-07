@@ -48,9 +48,11 @@ declare -A aliases # subtags map
 for file in "$@"; do
 	[[ $file != - ]] && exec <$file
 	while read key values; do
+		[[ -n $key ]] || continue
 		aliases[$key]+=" $key"
 		for value in $values; do
 			aliases[$key]+=" $value"
+			[[ $value == - ]] && continue
 			aliases[$value]+=" $value" # append the value also as an alias to itself
 		done
 	done
